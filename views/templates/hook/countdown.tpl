@@ -20,7 +20,6 @@
     </span>
     <span class="scmou-lines">
       <span class="scmou-text" data-text></span>
-      <span class="scmou-sub" data-subtext hidden></span>
     </span>
     <span class="scmou-badge" data-countdown hidden></span>
   </div>
