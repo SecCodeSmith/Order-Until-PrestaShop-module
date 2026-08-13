@@ -3,7 +3,8 @@
  * SCM Order Until — PrestaShop module.
  *
  * Shows a green "Available — order by HH:MM, delivered tomorrow" box with a live
- * countdown on the product summary (near the price) and on the cart.
+ * countdown on the product page (near the price) and inside the cart's order-
+ * summary column (next to the "Proceed to checkout" button).
  *
  * To keep load OFF the PrestaShop server, the delivery estimate is fetched
  * CLIENT-SIDE: the browser calls the FastAPI service directly
@@ -32,11 +33,14 @@ class Scmorderuntil extends Module implements WidgetInterface
     /** Guard so displayProductPriceBlock renders only once per page. */
     protected static $priceBlockRendered = false;
 
+    /** Guard so the cart-summary (reassurance) box renders only once per page. */
+    protected static $cartSummaryRendered = false;
+
     public function __construct()
     {
         $this->name = 'scmorderuntil';
         $this->tab = 'front_office_features';
-        $this->version = '1.2.0';
+        $this->version = '1.3.0';
         $this->author = 'SCM Order Until';
         $this->need_instance = 0;
         $this->ps_versions_compliancy = ['min' => '1.7.0.0', 'max' => _PS_VERSION_];
@@ -61,7 +65,7 @@ class Scmorderuntil extends Module implements WidgetInterface
             && $this->registerHook('displayHeader')
             && $this->registerHook('displayProductPriceBlock')
             && $this->registerHook('displayProductAdditionalInfo')
-            && $this->registerHook('displayShoppingCartFooter')
+            && $this->registerHook('displayReassurance')
             && $this->installDefaults();
     }
 
@@ -170,6 +174,12 @@ class Scmorderuntil extends Module implements WidgetInterface
     /** Renders in the product summary header (near price). Fires once. */
     public function hookDisplayProductPriceBlock($params)
     {
+        // displayProductPriceBlock also fires inside product miniatures on
+        // listing pages, the add-to-cart modal and cart line items. Restrict it
+        // to the product detail page so the box does not leak into those spots.
+        if (!$this->isProductPage()) {
+            return '';
+        }
         if ($this->conf('PLACEMENT', 'price_block') !== 'price_block') {
             return '';
         }
@@ -183,6 +193,9 @@ class Scmorderuntil extends Module implements WidgetInterface
     /** Alternative product placement (under the price block). */
     public function hookDisplayProductAdditionalInfo($params)
     {
+        if (!$this->isProductPage()) {
+            return '';
+        }
         if ($this->conf('PLACEMENT', 'price_block') !== 'additional_info') {
             return '';
         }
@@ -192,12 +205,40 @@ class Scmorderuntil extends Module implements WidgetInterface
         return $this->renderCountdown('product');
     }
 
-    public function hookDisplayShoppingCartFooter($params)
+    /**
+     * Renders inside the cart's order-summary column — the reassurance block,
+     * right by the "Proceed to checkout" button. Gated to the cart controller so
+     * it does not follow the reassurance hook onto product pages, and guarded so
+     * it shows only once even if the theme emits the hook more than once.
+     */
+    public function hookDisplayReassurance($params)
     {
-        if (!$this->conf('SHOW_CART', 1)) {
+        if (!$this->conf('SHOW_CART', 1) || self::$cartSummaryRendered) {
             return '';
         }
+        if (!$this->isCartPage()) {
+            return '';
+        }
+        self::$cartSummaryRendered = true;
         return $this->renderCountdown('cart');
+    }
+
+    /** True only on the product detail page (not listings, cart or modals). */
+    private function isProductPage()
+    {
+        $controller = isset($this->context->controller) ? $this->context->controller : null;
+        return $controller !== null
+            && isset($controller->php_self)
+            && $controller->php_self === 'product';
+    }
+
+    /** True only on the cart page (where the order-summary column lives). */
+    private function isCartPage()
+    {
+        $controller = isset($this->context->controller) ? $this->context->controller : null;
+        return $controller !== null
+            && isset($controller->php_self)
+            && $controller->php_self === 'cart';
     }
 
     // --------------------------------------------------------------------- //

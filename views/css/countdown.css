@@ -1,5 +1,6 @@
 /* SCM Order Until — "Available, order by …" box + countdown + footnote.
-   State classes (scmou-open / scmou-closed) and [hidden] live on .scmou-wrap. */
+   State classes (scmou-open / scmou-closed) and [hidden] live on .scmou-wrap.
+   Colour scheme: British Racing Green (#004225). */
 .scmou-wrap {
   margin: 14px 0;
 }
@@ -10,10 +11,10 @@
   align-items: center;
   gap: 10px;
   padding: 13px 18px;
-  border: 1px solid #cfe8d6;
+  border: 1px solid #a9c9b6;
   border-radius: 10px;
-  background: #e3f3e7;
-  color: #1f7a3d;
+  background: #e7f1ea;
+  color: #004225;
   font-size: 15px;
   line-height: 1.35;
   font-weight: 500;
@@ -24,7 +25,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  color: #2e9e52;
+  color: #004225;
 }
 .scmou-check svg { display: block; }
 
@@ -41,7 +42,7 @@
   font-size: 14px;
   letter-spacing: 0.02em;
   color: #ffffff;
-  background: #2e9e52;
+  background: #004225;
   padding: 3px 10px;
   border-radius: 999px;
   white-space: nowrap;
@@ -55,17 +56,17 @@
   padding-left: 2px;
   font-size: 12px;
   line-height: 1.3;
-  color: #7a8a80;
+  color: #5c7266;
 }
 
 /* Closed window: calmer look; the countdown now targets the next deadline. */
 .scmou-wrap.scmou-closed .scmou-box {
-  background: #eef4ef;
-  border-color: #d8e4da;
-  color: #326a45;
+  background: #eef3f0;
+  border-color: #cbdcd2;
+  color: #2f5442;
 }
 .scmou-wrap.scmou-closed .scmou-badge {
-  background: #6f8a7a;
+  background: #557a67;
 }
 
 @media (max-width: 480px) {
@@ -75,13 +76,15 @@
 
 @media (prefers-color-scheme: dark) {
   .scmou-box {
-    background: rgba(46, 158, 82, 0.12);
-    border-color: rgba(46, 158, 82, 0.35);
-    color: #7fd39a;
+    background: rgba(0, 66, 37, 0.16);
+    border-color: rgba(0, 66, 37, 0.45);
+    color: #7fc79e;
   }
+  .scmou-check { color: #7fc79e; }
+  .scmou-badge { background: #0a5c34; }
   .scmou-wrap.scmou-closed .scmou-box {
-    background: rgba(120, 140, 125, 0.12);
-    border-color: rgba(120, 140, 125, 0.35);
+    background: rgba(85, 122, 103, 0.14);
+    border-color: rgba(85, 122, 103, 0.38);
     color: #9db9a6;
   }
   .scmou-note { color: #93a79b; }

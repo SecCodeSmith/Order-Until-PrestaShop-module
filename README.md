@@ -95,15 +95,18 @@ Example — same product, two languages:
 ## Placement
 
 - **Product summary header** (default): hook `displayProductPriceBlock` — renders once at the
-  top of the price block, right by the price.
+  top of the price block, right by the price. Gated to the **product detail page** so it does
+  not leak into product-list miniatures, the add-to-cart modal or cart line items (that hook
+  fires in all of those).
 - **Under the price block**: switch *Placement* to `additional_info`
   (hook `displayProductAdditionalInfo`).
-- **Cart**: hook `displayShoppingCartFooter`.
+- **Cart**: hook `displayReassurance` — renders inside the **order-summary column**, next to the
+  "Proceed to checkout" button. Gated to the cart controller and to a single render per page.
 - **Anywhere**: `WidgetInterface` — drop `{widget name='scmorderuntil'}` into any template.
 
 ## Styling
 
-Green box by default. Override `views/css/countdown.css` or target: `.scmou-box`
+British Racing Green (`#004225`) box by default. Override `views/css/countdown.css` or target: `.scmou-box`
 (`.scmou-open` / `.scmou-closed`), `.scmou-check`, `.scmou-text`, `.scmou-badge`
 (the countdown pill). Dark-mode aware.
 
