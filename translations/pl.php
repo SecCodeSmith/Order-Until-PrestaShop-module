@@ -23,8 +23,11 @@ $_MODULE[$m . md5('on Friday')] = 'w piątek';
 $_MODULE[$m . md5('on Saturday')] = 'w sobotę';
 
 // Fallback sentence templates (when the per-language TPL_* fields are empty).
-$_MODULE[$m . md5('Available. Order by {cutoff}, delivered {when}*')]
-    = 'Dostępny. Zamów do {cutoff}, {when} u Ciebie*';
+// Open = before today's cutoff; closed = after it (ships the next working day).
+$_MODULE[$m . md5('Available, order by {cutoff}, delivery {when}*')]
+    = 'Dostępny, zamów do {cutoff}, dostawa {when}*';
+$_MODULE[$m . md5('Available, order before {shipwhen} {cutoff}*')]
+    = 'Dostępny, zamów {shipwhen} do {cutoff}*';
 
 // A few back-office / display strings.
 $_MODULE[$m . md5('SCM Order Until — Delivery Countdown')]

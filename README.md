@@ -1,7 +1,8 @@
 # SCM Order Until — PrestaShop module (`scmorderuntil`)
 
-Shows a green **"Available — order by HH:MM, delivered {tomorrow / weekday}"** box with a
+Shows a green **"Available, order by HH:MM, delivery {tomorrow / weekday}"** box with a
 live **countdown**, in the **product summary header** (next to the price) and on the cart.
+Once the cutoff passes it flips to **"Available, order before {tomorrow / weekday} HH:MM"**.
 
 To keep load **off** the PrestaShop server, the delivery estimate is fetched **client-side**:
 the visitor's browser calls the companion **FastAPI service** directly
@@ -46,15 +47,13 @@ Browser (countdown.js) ── GET {API}/api/v1/delivery/estimate ──► FastA
 | Cutoff time | `SCMOU_CUTOFF` | — | `HH:MM`; empty = API default |
 | Delivery offset | `SCMOU_DELIVERY_OFFSET` | — | working days ship→delivery; empty = API default |
 | API message locale | `SCMOU_LOCALE` | auto | `''` (page language) / `en` / `pl` — only the API request's `locale` param; the on-screen wording comes from PrestaShop translations |
-| Text — open **(per language)** | `SCMOU_TPL_OPEN` | built-in | placeholders `{cutoff} {when} {delivery}` |
-| Text — closed **(per language)** | `SCMOU_TPL_CLOSED` | built-in | placeholders `{cutoff} {when} {delivery}` |
-| Text — second line **(per language)** | `SCMOU_TPL_SUB` | built-in | detail line under the main text; placeholders `{cutoff} {shipwhen} {when} {ship} {delivery}` |
+| Text — open **(per language)** | `SCMOU_TPL_OPEN` | built-in | placeholders `{cutoff} {shipwhen} {when} {delivery}` |
+| Text — closed **(per language)** | `SCMOU_TPL_CLOSED` | built-in | placeholders `{cutoff} {shipwhen} {when} {delivery}` |
 | Countdown label **(per language)** | `SCMOU_LABEL_COUNTDOWN` | — | prefix before the timer, e.g. "still" |
 | Footnote `*` **(per language)** | `SCMOU_FOOTNOTE` | `* on working days` / `* w dni robocze` | small note under the box; empty = hidden |
 | Cache TTL (server mode) | `SCMOU_CACHE_TTL` | `120` | seconds; `0` disables |
 | API timeout (server mode) | `SCMOU_TIMEOUT` | `3` | seconds |
 | Show on product / cart | `SCMOU_SHOW_PRODUCT` / `SCMOU_SHOW_CART` | on | |
-| Show second line | `SCMOU_SHOW_SUB` | on | the ship/delivery detail line under the main text |
 | Auto-refresh at zero | `SCMOU_REFRESH` | on | refetch when the timer reaches zero |
 | Update source | `SCMOU_UPDATE_REPO` | `SecCodeSmith/Order-Until-PrestaShop-module` | GitHub `owner/repo` the self-updater reads releases from |
 | Update token | `SCMOU_UPDATE_TOKEN` | — | optional GitHub token (private repo / rate limits) |
@@ -68,17 +67,17 @@ customise it. Placeholders:
 - `{when}` — `jutro` / `tomorrow` if delivery is the next day, otherwise the weekday
   (Polish uses the correct accusative: `we wtorek`, `w środę`, …)
 - `{delivery}` — delivery date as `DD.MM`
-- `{shipwhen}` — `today` / `tomorrow` / weekday for the **ship** day (second line only)
-- `{ship}` — ship date as `DD.MM` (second line only)
+- `{shipwhen}` — `today` / `tomorrow` / weekday for the **ship** day
 
-Built-in defaults: PL `Dostępny. Zamów do {cutoff}, {when} u Ciebie*` ·
-EN `Available. Order by {cutoff}, delivered {when}*`.
+Built-in defaults:
 
-**Second line** (`SCMOU_TPL_SUB`, toggle `SCMOU_SHOW_SUB`) adds a detail line below the
-main text — by default the ship day, which the first line doesn't show:
-PL `Zamów do {cutoff}, wysyłka {shipwhen}, dostawa {when}` ·
-EN `Order by {cutoff}, ships {shipwhen}, delivered {when}` →
-e.g. *"Order by 15:00, ships tomorrow, delivered on Monday"*.
+- **Open** (before today's cutoff): EN `Available, order by {cutoff}, delivery {when}*` ·
+  PL `Dostępny, zamów do {cutoff}, dostawa {when}*` → e.g. *"Available, order by 15:00, delivery tomorrow*"*.
+- **Closed** (after the cutoff — ships the next working day): EN `Available, order before {shipwhen} {cutoff}*` ·
+  PL `Dostępny, zamów {shipwhen} do {cutoff}*` → e.g. *"Available, order before tomorrow 15:00*"*.
+
+The widget shows a **single line** only. (A second detail line existed in earlier
+versions but was removed — all wording now lives in the first line.)
 
 ## Languages & translations
 
@@ -100,7 +99,7 @@ shop language:
 Example — same product, two languages:
 
 ```
-/men/1-1-hummingbird-printed-t-shirt.html      → "…delivered tomorrow*"
+/men/1-1-hummingbird-printed-t-shirt.html      → "…delivery tomorrow*"
 /pl/men/1-1-hummingbird-printed-t-shirt.html   → "…jutro u Ciebie*"
 ```
 

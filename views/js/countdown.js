@@ -3,7 +3,7 @@
  *
  * The BROWSER calls the FastAPI service directly (or the module's PHP proxy in
  * "server" mode), so PrestaShop does no per-request work. It then renders a
- * green "Available — order by HH:MM, delivered {when}" box with a live countdown.
+ * green "Available, order by HH:MM, delivery {when}" box with a live countdown.
  *
  * All day/date wording comes from window.scmou.labels, which PrestaShop fills in
  * with the CURRENT page language's translations (see Scmorderuntil::phraseLabels).
@@ -12,14 +12,9 @@
  *
  * window.scmou = {
  *   callMode, endpoint, apiBase, ajaxUrl, cutoff, offset, locale, refresh,
- *   templates:{open,closed,sub}, countdownLabel, showSub, apiKey?,
- *   labels:{ today, tomorrow, days, weekdays[7], defaultOpen, defaultClosed,
- *            defaultSub }
+ *   templates:{open,closed}, countdownLabel, apiKey?,
+ *   labels:{ today, tomorrow, days, weekdays[7], defaultOpen, defaultClosed }
  * }
- *
- * The optional second line (data-subtext) shows the ship/delivery detail, e.g.
- * "Order by 15:00, ships tomorrow, delivered on Monday". Placeholders:
- * {cutoff} {shipwhen} {when} {ship} {delivery}. Toggled off via showSub.
  */
 (function () {
   'use strict';
@@ -33,9 +28,8 @@
     days: 'd',
     weekdays: ['on Sunday', 'on Monday', 'on Tuesday', 'on Wednesday',
       'on Thursday', 'on Friday', 'on Saturday'],
-    defaultOpen: 'Available. Order by {cutoff}, delivered {when}*',
-    defaultClosed: 'Available. Order by {cutoff}, delivered {when}*',
-    defaultSub: 'Order by {cutoff}, ships {shipwhen}, delivered {when}'
+    defaultOpen: 'Available, order by {cutoff}, delivery {when}*',
+    defaultClosed: 'Available, order before {shipwhen} {cutoff}*'
   }, CFG.labels || {});
 
   function merge(base, over) {
@@ -102,21 +96,8 @@
       || (open ? L.defaultOpen : L.defaultClosed) || '';
     return tpl
       .replace(/\{cutoff\}/g, est.cutoff_time || '')
-      .replace(/\{when\}/g, whenPhrase(est))
-      .replace(/\{delivery\}/g, ddmm(est.delivery_date));
-  }
-
-  // Optional second line: ship day + delivery detail. Empty -> the line stays
-  // hidden (showSub off, or no template resolved).
-  function buildSubText(est) {
-    if (CFG.showSub === false) { return ''; }
-    var tpl = (CFG.templates && CFG.templates.sub) || L.defaultSub || '';
-    if (!tpl) { return ''; }
-    return tpl
-      .replace(/\{cutoff\}/g, est.cutoff_time || '')
       .replace(/\{shipwhen\}/g, shipWhenPhrase(est))
       .replace(/\{when\}/g, whenPhrase(est))
-      .replace(/\{ship\}/g, ddmm(est.ship_date))
       .replace(/\{delivery\}/g, ddmm(est.delivery_date));
   }
 
@@ -175,17 +156,6 @@
 
     var textEl = el.querySelector('[data-text]');
     if (textEl) { textEl.textContent = buildText(est); }
-
-    var subEl = el.querySelector('[data-subtext]');
-    if (subEl) {
-      var sub = buildSubText(est);
-      if (sub) {
-        subEl.textContent = sub;
-        subEl.removeAttribute('hidden');
-      } else {
-        subEl.setAttribute('hidden', '');
-      }
-    }
 
     // Always show the countdown: open -> today's cutoff; closed -> next deadline.
     var badge = el.querySelector('[data-countdown]');

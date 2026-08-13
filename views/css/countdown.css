@@ -41,15 +41,6 @@
   min-width: 0;
 }
 
-/* Second line (ship/delivery detail) under the main text. */
-.scmou-sub {
-  font-size: 13px;
-  font-weight: 400;
-  line-height: 1.3;
-  opacity: 0.85;
-}
-.scmou-sub[hidden] { display: none !important; }
-
 /* Live countdown pill. */
 .scmou-badge {
   flex: 0 0 auto;
@@ -75,15 +66,9 @@
   color: #5c7266;
 }
 
-/* Closed window: calmer look; the countdown now targets the next deadline. */
-.scmou-wrap.scmou-closed .scmou-box {
-  background: #eef3f0;
-  border-color: #cbdcd2;
-  color: #2f5442;
-}
-.scmou-wrap.scmou-closed .scmou-badge {
-  background: #557a67;
-}
+/* Closed window (past today's cutoff): the message still reads "Available"
+   (order before the next working day's cutoff), so it keeps the same green,
+   positive look as the open state — only the countdown target changes. */
 
 @media (max-width: 480px) {
   .scmou-box { flex-wrap: wrap; font-size: 14px; padding: 12px 14px; }
@@ -98,10 +83,5 @@
   }
   .scmou-check { color: #7fc79e; }
   .scmou-badge { background: #0a5c34; }
-  .scmou-wrap.scmou-closed .scmou-box {
-    background: rgba(85, 122, 103, 0.14);
-    border-color: rgba(85, 122, 103, 0.38);
-    color: #9db9a6;
-  }
   .scmou-note { color: #93a79b; }
 }

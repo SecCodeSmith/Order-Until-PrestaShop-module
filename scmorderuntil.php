@@ -2,7 +2,7 @@
 /**
  * SCM Order Until — PrestaShop module.
  *
- * Shows a green "Available — order by HH:MM, delivered tomorrow" box with a live
+ * Shows a green "Available, order by HH:MM, delivery tomorrow" box with a live
  * countdown on the product page (near the price) and inside the cart's order-
  * summary column (next to the "Proceed to checkout" button).
  *
@@ -56,7 +56,7 @@ class Scmorderuntil extends Module implements WidgetInterface
 
         $this->displayName = $this->l('SCM Order Until — Delivery Countdown');
         $this->description = $this->l(
-            'Green "order by cutoff, delivered next working day" box with a live '
+            'Green "order by cutoff, delivery next working day" box with a live '
             . 'countdown, fetched client-side from the SCM Order Until API.'
         );
         $this->confirmUninstall = $this->l('Remove SCM Order Until configuration?');
@@ -87,16 +87,19 @@ class Scmorderuntil extends Module implements WidgetInterface
     {
         return [
             'API_URL', 'API_KEY', 'CALL_MODE', 'PLACEMENT', 'CUTOFF',
-            'DELIVERY_OFFSET', 'LOCALE', 'TPL_OPEN', 'TPL_CLOSED', 'TPL_SUB',
+            'DELIVERY_OFFSET', 'LOCALE', 'TPL_OPEN', 'TPL_CLOSED',
             'LABEL_COUNTDOWN', 'FOOTNOTE', 'CACHE_TTL', 'TIMEOUT', 'SHOW_PRODUCT',
-            'SHOW_CART', 'SHOW_SUB', 'REFRESH', 'UPDATE_REPO', 'UPDATE_TOKEN',
+            'SHOW_CART', 'REFRESH', 'UPDATE_REPO', 'UPDATE_TOKEN',
+            // Legacy (removed second-line feature): listed only so uninstall
+            // purges any values left in the DB by older module versions.
+            'TPL_SUB', 'SHOW_SUB',
         ];
     }
 
     /** Config keys stored per-language (multilang). */
     private function multilangKeys()
     {
-        return ['TPL_OPEN', 'TPL_CLOSED', 'TPL_SUB', 'LABEL_COUNTDOWN', 'FOOTNOTE'];
+        return ['TPL_OPEN', 'TPL_CLOSED', 'LABEL_COUNTDOWN', 'FOOTNOTE'];
     }
 
     /** Built-in per-ISO default for a multilang key (used at install time). */
@@ -126,7 +129,6 @@ class Scmorderuntil extends Module implements WidgetInterface
             'TIMEOUT' => 3,               // server mode only
             'SHOW_PRODUCT' => 1,
             'SHOW_CART' => 1,
-            'SHOW_SUB' => 1,              // second line (ship/delivery detail)
             'REFRESH' => 1,
             'UPDATE_REPO' => self::GH_DEFAULT_REPO,
             'UPDATE_TOKEN' => '',
@@ -300,11 +302,9 @@ class Scmorderuntil extends Module implements WidgetInterface
             'offset' => (string) $this->conf('DELIVERY_OFFSET', ''),
             'locale' => $this->resolveLocale(),
             'refresh' => (bool) $this->conf('REFRESH', 1),
-            'showSub' => (bool) $this->conf('SHOW_SUB', 1),
             'templates' => [
                 'open' => $this->confLang('TPL_OPEN'),
                 'closed' => $this->confLang('TPL_CLOSED'),
-                'sub' => $this->confLang('TPL_SUB'),
             ],
             'countdownLabel' => $this->confLang('LABEL_COUNTDOWN'),
             // Day/date phrases, translated via PrestaShop for the CURRENT page
@@ -359,10 +359,8 @@ class Scmorderuntil extends Module implements WidgetInterface
             ],
             // Fallback sentence templates when the per-language TPL_* fields are
             // empty. Also translatable, so they follow the page language.
-            'defaultOpen' => $this->l('Available. Order by {cutoff}, delivered {when}*'),
-            'defaultClosed' => $this->l('Available. Order by {cutoff}, delivered {when}*'),
-            // Second line (shown when SHOW_SUB is on and TPL_SUB is empty).
-            'defaultSub' => $this->l('Order by {cutoff}, ships {shipwhen}, delivered {when}'),
+            'defaultOpen' => $this->l('Available, order by {cutoff}, delivery {when}*'),
+            'defaultClosed' => $this->l('Available, order before {shipwhen} {cutoff}*'),
         ];
     }
 
@@ -752,7 +750,7 @@ class Scmorderuntil extends Module implements WidgetInterface
             'API_URL' => 'string', 'API_KEY' => 'string', 'CALL_MODE' => 'string',
             'PLACEMENT' => 'string', 'CUTOFF' => 'string', 'DELIVERY_OFFSET' => 'int',
             'LOCALE' => 'string', 'CACHE_TTL' => 'int', 'TIMEOUT' => 'int',
-            'SHOW_PRODUCT' => 'bool', 'SHOW_CART' => 'bool', 'SHOW_SUB' => 'bool',
+            'SHOW_PRODUCT' => 'bool', 'SHOW_CART' => 'bool',
             'REFRESH' => 'bool', 'UPDATE_REPO' => 'string', 'UPDATE_TOKEN' => 'string',
         ];
         foreach ($types as $key => $type) {
@@ -784,13 +782,6 @@ class Scmorderuntil extends Module implements WidgetInterface
 
     private function renderConfigForm()
     {
-        // Seed the newer toggle on first view so its switch reflects the
-        // on-by-default behavior on installs upgraded without a DB migration
-        // (otherwise the switch would show "off" and a plain Save would hide it).
-        if (Configuration::get(self::PREFIX . 'SHOW_SUB') === false) {
-            Configuration::updateValue(self::PREFIX . 'SHOW_SUB', 1);
-        }
-
         $onoff = function ($label, $name, $desc = '') {
             return [
                 'type' => 'switch', 'label' => $label, 'name' => self::PREFIX . $name,
@@ -859,19 +850,13 @@ class Scmorderuntil extends Module implements WidgetInterface
                         'type' => 'text', 'lang' => true,
                         'label' => $this->l('Text — order window open'),
                         'name' => self::PREFIX . 'TPL_OPEN',
-                        'desc' => $this->l('Placeholders: {cutoff} {when} {delivery}. Empty = built-in default.'),
+                        'desc' => $this->l('Placeholders: {cutoff} {shipwhen} {when} {delivery}. Empty = built-in default.'),
                     ],
                     [
                         'type' => 'text', 'lang' => true,
                         'label' => $this->l('Text — window closed'),
                         'name' => self::PREFIX . 'TPL_CLOSED',
-                        'desc' => $this->l('Placeholders: {cutoff} {when} {delivery}. Empty = built-in default.'),
-                    ],
-                    [
-                        'type' => 'text', 'lang' => true,
-                        'label' => $this->l('Text — second line'),
-                        'name' => self::PREFIX . 'TPL_SUB',
-                        'desc' => $this->l('Second line of detail. Placeholders: {cutoff} {shipwhen} {when} {ship} {delivery}. Empty = default.'),
+                        'desc' => $this->l('Placeholders: {cutoff} {shipwhen} {when} {delivery}. Empty = built-in default.'),
                     ],
                     [
                         'type' => 'text', 'lang' => true,
@@ -895,10 +880,6 @@ class Scmorderuntil extends Module implements WidgetInterface
                     ],
                     $onoff($this->l('Show on product page'), 'SHOW_PRODUCT'),
                     $onoff($this->l('Show on cart page'), 'SHOW_CART'),
-                    $onoff(
-                        $this->l('Show second line'), 'SHOW_SUB',
-                        $this->l('The detail line (ship/delivery) under the main text.')
-                    ),
                     $onoff(
                         $this->l('Auto-refresh at zero'), 'REFRESH',
                         $this->l('Refetch when the countdown reaches zero so it rolls to the next window.')
