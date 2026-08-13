@@ -11,8 +11,26 @@ npm-debug.log*
 # PrestaShop generated cache manifests (keep the module's own config.xml)
 config_*.xml
 
+# Python tooling & cache files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.ruff_cache/
+.venv/
+
+# Build artifacts & packages
+build/
+bin/
+*.zip
+
 # OS / editor cruft
 .DS_Store
 Thumbs.db
 .idea/
 .vscode/
+
+# AI report directories
+AI report/
+AI_report/

@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -49,3 +49,60 @@ jobs:
       - name: ESLint (advisory)
         run: npm run lint:js
         continue-on-error: true
+
+  python-tests:
+    name: Python version helper tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install pytest
+        run: pip install pytest
+      - name: Run Python unit tests
+        run: pytest -q
+
+  tag-and-release:
+    name: Tag Release & Publish Module Zip
+    needs: [php, js, python-tests]
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Calculate next version tag (patch increment)
+        id: version
+        run: |
+          git fetch --tags --force || true
+          LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+          python scripts/bump_version.py "$LATEST_TAG"
+
+      - name: Create and push Git tag
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          TAG_NAME="${{ steps.version.outputs.tag_name }}"
+          git tag "$TAG_NAME"
+          git push origin "$TAG_NAME"
+
+      - name: Package module into scmorderuntil.zip
+        run: |
+          mkdir -p build/scmorderuntil
+          rsync -av --exclude='build' --exclude='.git' --exclude='.github' --exclude='node_modules' --exclude='tests' --exclude='scripts' --exclude='AI report' --exclude='AI_report' ./ build/scmorderuntil/
+          cd build && zip -r ../scmorderuntil.zip scmorderuntil/ && cd ..
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.tag_name }}
+          name: PrestaShop Module ${{ steps.version.outputs.tag_name }}
+          files: scmorderuntil.zip
+          draft: false
+          prerelease: false
