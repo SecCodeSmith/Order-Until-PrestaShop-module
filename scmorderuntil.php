@@ -46,7 +46,7 @@ class Scmorderuntil extends Module implements WidgetInterface
     {
         $this->name = 'scmorderuntil';
         $this->tab = 'front_office_features';
-        $this->version = '1.3.1';
+        $this->version = '1.3.2';
         $this->author = 'SCM Order Until';
         $this->need_instance = 0;
         $this->ps_versions_compliancy = ['min' => '1.7.0.0', 'max' => _PS_VERSION_];
