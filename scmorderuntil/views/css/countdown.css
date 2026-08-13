@@ -1,0 +1,88 @@
+/* SCM Order Until — "Available, order by …" box + countdown + footnote.
+   State classes (scmou-open / scmou-closed) and [hidden] live on .scmou-wrap. */
+.scmou-wrap {
+  margin: 14px 0;
+}
+.scmou-wrap[hidden] { display: none !important; }
+
+.scmou-box {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 13px 18px;
+  border: 1px solid #cfe8d6;
+  border-radius: 10px;
+  background: #e3f3e7;
+  color: #1f7a3d;
+  font-size: 15px;
+  line-height: 1.35;
+  font-weight: 500;
+}
+
+.scmou-check {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #2e9e52;
+}
+.scmou-check svg { display: block; }
+
+.scmou-text {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* Live countdown pill. */
+.scmou-badge {
+  flex: 0 0 auto;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  font-size: 14px;
+  letter-spacing: 0.02em;
+  color: #ffffff;
+  background: #2e9e52;
+  padding: 3px 10px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+.scmou-badge[hidden] { display: none !important; }
+
+/* Footnote (the "*" note) under the box. */
+.scmou-note {
+  display: block;
+  margin-top: 5px;
+  padding-left: 2px;
+  font-size: 12px;
+  line-height: 1.3;
+  color: #7a8a80;
+}
+
+/* Closed window: calmer look; the countdown now targets the next deadline. */
+.scmou-wrap.scmou-closed .scmou-box {
+  background: #eef4ef;
+  border-color: #d8e4da;
+  color: #326a45;
+}
+.scmou-wrap.scmou-closed .scmou-badge {
+  background: #6f8a7a;
+}
+
+@media (max-width: 480px) {
+  .scmou-box { flex-wrap: wrap; font-size: 14px; padding: 12px 14px; }
+  .scmou-badge { font-size: 13px; }
+}
+
+@media (prefers-color-scheme: dark) {
+  .scmou-box {
+    background: rgba(46, 158, 82, 0.12);
+    border-color: rgba(46, 158, 82, 0.35);
+    color: #7fd39a;
+  }
+  .scmou-wrap.scmou-closed .scmou-box {
+    background: rgba(120, 140, 125, 0.12);
+    border-color: rgba(120, 140, 125, 0.35);
+    color: #9db9a6;
+  }
+  .scmou-note { color: #93a79b; }
+}
