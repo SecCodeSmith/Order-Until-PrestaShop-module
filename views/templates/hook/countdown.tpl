@@ -18,7 +18,10 @@
         <path d="M7.6 13.3 4.3 10l-1.1 1.1 4.4 4.4 9-9L15.5 5.4z" fill="currentColor"/>
       </svg>
     </span>
-    <span class="scmou-text" data-text></span>
+    <span class="scmou-lines">
+      <span class="scmou-text" data-text></span>
+      <span class="scmou-sub" data-subtext hidden></span>
+    </span>
     <span class="scmou-badge" data-countdown hidden></span>
   </div>
   {if $scmou_footnote}

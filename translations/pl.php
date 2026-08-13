@@ -11,6 +11,7 @@ $_MODULE = array();
 $m = '<{scmorderuntil}prestashop>scmorderuntil_';
 
 // Day / date phrases (weekday phrases use the correct Polish grammatical case).
+$_MODULE[$m . md5('today')] = 'dziś';
 $_MODULE[$m . md5('tomorrow')] = 'jutro';
 $_MODULE[$m . md5('d')] = 'd';
 $_MODULE[$m . md5('on Sunday')] = 'w niedzielę';
@@ -24,6 +25,8 @@ $_MODULE[$m . md5('on Saturday')] = 'w sobotę';
 // Fallback sentence templates (when the per-language TPL_* fields are empty).
 $_MODULE[$m . md5('Available. Order by {cutoff}, delivered {when}*')]
     = 'Dostępny. Zamów do {cutoff}, {when} u Ciebie*';
+$_MODULE[$m . md5('Order by {cutoff}, ships {shipwhen}, delivered {when}')]
+    = 'Zamów do {cutoff}, wysyłka {shipwhen}, dostawa {when}';
 
 // A few back-office / display strings.
 $_MODULE[$m . md5('SCM Order Until — Delivery Countdown')]

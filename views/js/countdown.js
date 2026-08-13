@@ -12,9 +12,14 @@
  *
  * window.scmou = {
  *   callMode, endpoint, apiBase, ajaxUrl, cutoff, offset, locale, refresh,
- *   templates:{open,closed}, countdownLabel, apiKey?,
- *   labels:{ tomorrow, days, weekdays[7], defaultOpen, defaultClosed }
+ *   templates:{open,closed,sub}, countdownLabel, showSub, apiKey?,
+ *   labels:{ today, tomorrow, days, weekdays[7], defaultOpen, defaultClosed,
+ *            defaultSub }
  * }
+ *
+ * The optional second line (data-subtext) shows the ship/delivery detail, e.g.
+ * "Order by 15:00, ships tomorrow, delivered on Monday". Placeholders:
+ * {cutoff} {shipwhen} {when} {ship} {delivery}. Toggled off via showSub.
  */
 (function () {
   'use strict';
@@ -23,12 +28,14 @@
 
   // Language-neutral fallbacks; PrestaShop overrides these per page language.
   var L = merge({
+    today: 'today',
     tomorrow: 'tomorrow',
     days: 'd',
     weekdays: ['on Sunday', 'on Monday', 'on Tuesday', 'on Wednesday',
       'on Thursday', 'on Friday', 'on Saturday'],
     defaultOpen: 'Available. Order by {cutoff}, delivered {when}*',
-    defaultClosed: 'Available. Order by {cutoff}, delivered {when}*'
+    defaultClosed: 'Available. Order by {cutoff}, delivered {when}*',
+    defaultSub: 'Order by {cutoff}, ships {shipwhen}, delivered {when}'
   }, CFG.labels || {});
 
   function merge(base, over) {
@@ -58,14 +65,28 @@
     return days > 0 ? days + (L.days || 'd') + ' ' + hms : hms;
   }
 
-  function whenPhrase(est) {
+  // A human phrase for a date relative to "today": today / tomorrow / weekday.
+  // allowToday distinguishes the ship day (can be today) from the delivery day.
+  function dayPhrase(est, dateStr, allowToday) {
+    if (!dateStr) { return ''; }
     var diff = Math.round(
-      (parseDate(est.delivery_date) - parseDate(est.today)) / 86400000
+      (parseDate(dateStr) - parseDate(est.today)) / 86400000
     );
+    if (allowToday && diff <= 0) {
+      return L.today;
+    }
     if (diff <= 1) {
       return L.tomorrow;
     }
-    return (L.weekdays || [])[parseDate(est.delivery_date).getDay()] || '';
+    return (L.weekdays || [])[parseDate(dateStr).getDay()] || '';
+  }
+
+  function whenPhrase(est) {
+    return dayPhrase(est, est.delivery_date, false);
+  }
+
+  function shipWhenPhrase(est) {
+    return dayPhrase(est, est.ship_date, true);
   }
 
   function ddmm(s) {
@@ -82,6 +103,20 @@
     return tpl
       .replace(/\{cutoff\}/g, est.cutoff_time || '')
       .replace(/\{when\}/g, whenPhrase(est))
+      .replace(/\{delivery\}/g, ddmm(est.delivery_date));
+  }
+
+  // Optional second line: ship day + delivery detail. Empty -> the line stays
+  // hidden (showSub off, or no template resolved).
+  function buildSubText(est) {
+    if (CFG.showSub === false) { return ''; }
+    var tpl = (CFG.templates && CFG.templates.sub) || L.defaultSub || '';
+    if (!tpl) { return ''; }
+    return tpl
+      .replace(/\{cutoff\}/g, est.cutoff_time || '')
+      .replace(/\{shipwhen\}/g, shipWhenPhrase(est))
+      .replace(/\{when\}/g, whenPhrase(est))
+      .replace(/\{ship\}/g, ddmm(est.ship_date))
       .replace(/\{delivery\}/g, ddmm(est.delivery_date));
   }
 
@@ -140,6 +175,17 @@
 
     var textEl = el.querySelector('[data-text]');
     if (textEl) { textEl.textContent = buildText(est); }
+
+    var subEl = el.querySelector('[data-subtext]');
+    if (subEl) {
+      var sub = buildSubText(est);
+      if (sub) {
+        subEl.textContent = sub;
+        subEl.removeAttribute('hidden');
+      } else {
+        subEl.setAttribute('hidden', '');
+      }
+    }
 
     // Always show the countdown: open -> today's cutoff; closed -> next deadline.
     var badge = el.querySelector('[data-countdown]');

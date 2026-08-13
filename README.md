@@ -48,11 +48,13 @@ Browser (countdown.js) ── GET {API}/api/v1/delivery/estimate ──► FastA
 | API message locale | `SCMOU_LOCALE` | auto | `''` (page language) / `en` / `pl` — only the API request's `locale` param; the on-screen wording comes from PrestaShop translations |
 | Text — open **(per language)** | `SCMOU_TPL_OPEN` | built-in | placeholders `{cutoff} {when} {delivery}` |
 | Text — closed **(per language)** | `SCMOU_TPL_CLOSED` | built-in | placeholders `{cutoff} {when} {delivery}` |
+| Text — second line **(per language)** | `SCMOU_TPL_SUB` | built-in | detail line under the main text; placeholders `{cutoff} {shipwhen} {when} {ship} {delivery}` |
 | Countdown label **(per language)** | `SCMOU_LABEL_COUNTDOWN` | — | prefix before the timer, e.g. "still" |
 | Footnote `*` **(per language)** | `SCMOU_FOOTNOTE` | `* on working days` / `* w dni robocze` | small note under the box; empty = hidden |
 | Cache TTL (server mode) | `SCMOU_CACHE_TTL` | `120` | seconds; `0` disables |
 | API timeout (server mode) | `SCMOU_TIMEOUT` | `3` | seconds |
 | Show on product / cart | `SCMOU_SHOW_PRODUCT` / `SCMOU_SHOW_CART` | on | |
+| Show second line | `SCMOU_SHOW_SUB` | on | the ship/delivery detail line under the main text |
 | Auto-refresh at zero | `SCMOU_REFRESH` | on | refetch when the timer reaches zero |
 
 ### Text templates
@@ -64,9 +66,17 @@ customise it. Placeholders:
 - `{when}` — `jutro` / `tomorrow` if delivery is the next day, otherwise the weekday
   (Polish uses the correct accusative: `we wtorek`, `w środę`, …)
 - `{delivery}` — delivery date as `DD.MM`
+- `{shipwhen}` — `today` / `tomorrow` / weekday for the **ship** day (second line only)
+- `{ship}` — ship date as `DD.MM` (second line only)
 
 Built-in defaults: PL `Dostępny. Zamów do {cutoff}, {when} u Ciebie*` ·
 EN `Available. Order by {cutoff}, delivered {when}*`.
+
+**Second line** (`SCMOU_TPL_SUB`, toggle `SCMOU_SHOW_SUB`) adds a detail line below the
+main text — by default the ship day, which the first line doesn't show:
+PL `Zamów do {cutoff}, wysyłka {shipwhen}, dostawa {when}` ·
+EN `Order by {cutoff}, ships {shipwhen}, delivered {when}` →
+e.g. *"Order by 15:00, ships tomorrow, delivered on Monday"*.
 
 ## Languages & translations
 
@@ -75,7 +85,7 @@ shop language:
 
 - **Sentence text**: the per-language `SCMOU_TPL_OPEN` / `SCMOU_TPL_CLOSED` fields
   (Back Office, one value per language). Leave empty to use the translatable default.
-- **Day/date phrases** (`tomorrow`, weekday names, the `d` days unit, default templates):
+- **Day/date phrases** (`today`, `tomorrow`, weekday names, the `d` days unit, default templates):
   these live in the module as `$this->l()` strings and are translated per language via
   PrestaShop's translation system. They are injected into `window.scmou.labels` for the
   current page language, so the JS is language-agnostic.
