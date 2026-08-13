@@ -1,10 +1,21 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: MIT
-"""Script to parse version tags or module version and bump the patch version.
+"""Release helper: read the module's declared version, bump the patch, write it
+back into the module, and emit the tag for CI.
+
+The **module config is the single source of truth** for the version: the base
+version is read from `scmorderuntil.php` (`$this->version`), falling back to
+`config.xml`. We increment the patch component, optionally write the new value
+back into both files (`--write`), and print the resulting `vMAJOR.MINOR.PATCH`
+tag. Git tags are NOT consulted — the module owns its version.
 
 Examples:
-    1.2.0 -> v1.2.1
-    v1.2.3 -> v1.2.4
+    1.2.0  (in scmorderuntil.php)  ->  v1.2.1
+    1.3.0  (in scmorderuntil.php)  ->  v1.3.1
+
+Usage:
+    python scripts/bump_version.py           # dry-run: print the next version
+    python scripts/bump_version.py --write    # also write it into the module
 """
 from __future__ import annotations
 
@@ -12,6 +23,13 @@ import os
 import re
 import sys
 from pathlib import Path
+
+# `$this->version = '1.2.0';` — capture the quote + value + closing quote.
+PHP_VERSION_RE = re.compile(r"""(\$this->version\s*=\s*['"])([^'"]+)(['"])""")
+# `<version><![CDATA[1.2.0]]></version>`
+XML_CDATA_VERSION_RE = re.compile(r"(<version><!\[CDATA\[)([^\]]+)(\]\]></version>)")
+# `<version>1.2.0</version>`
+XML_PLAIN_VERSION_RE = re.compile(r"(<version>)([^<]+)(</version>)")
 
 
 def parse_version(version_str: str) -> tuple[int, int, int]:
@@ -34,57 +52,89 @@ def format_version(version: tuple[int, int, int], prefix: str = "v") -> str:
 
 
 def get_base_version(module_dir: Path) -> str:
-    """Read version from scmorderuntil.php or config.xml."""
+    """Read the module's declared version from scmorderuntil.php, then config.xml."""
     php_path = module_dir / "scmorderuntil.php"
     if php_path.exists():
-        content = php_path.read_text(encoding="utf-8")
-        match = re.search(r'\$this->version\s*=\s*["\']([^"\']+)["\']', content)
+        match = PHP_VERSION_RE.search(php_path.read_text(encoding="utf-8"))
         if match:
-            return match.group(1)
+            return match.group(2)
 
     xml_path = module_dir / "config.xml"
     if xml_path.exists():
         content = xml_path.read_text(encoding="utf-8")
-        match = re.search(r"<version><!\[CDATA\[([^\]]+)\]\]></version>", content)
-        if not match:
-            match = re.search(r"<version>([^<]+)</version>", content)
+        match = XML_CDATA_VERSION_RE.search(content)
+        if match is None:
+            match = XML_PLAIN_VERSION_RE.search(content)
         if match:
-            return match.group(1)
+            return match.group(2)
 
-    return "1.2.0"
+    return "1.0.0"
 
 
-def calculate_next_tag(latest_tag: str | None, base_version: str, prefix: str = "v") -> str:
-    """Determine the next tag by incrementing the patch number.
+def set_version_in_php(php_path: Path, new_version: str) -> bool:
+    """Rewrite `$this->version` in scmorderuntil.php. Returns True if changed."""
+    content = php_path.read_text(encoding="utf-8")
+    new_content, count = PHP_VERSION_RE.subn(
+        lambda m: m.group(1) + new_version + m.group(3), content, count=1
+    )
+    if count:
+        php_path.write_text(new_content, encoding="utf-8")
+    return count > 0
 
-    If latest_tag is provided (e.g. 'v1.2.5'), increments its patch ('v1.2.6').
-    Otherwise, increments base_version ('1.2.0' -> 'v1.2.1').
-    """
-    if latest_tag and latest_tag.strip():
-        target_str = latest_tag.strip()
-        pfx = "v" if target_str.startswith("v") else ""
-    else:
-        target_str = base_version
-        pfx = "v" if (base_version.startswith("v") or prefix == "v") else ""
 
-    parsed = parse_version(target_str)
-    bumped = bump_patch(parsed)
-    return format_version(bumped, prefix=pfx)
+def set_version_in_xml(xml_path: Path, new_version: str) -> bool:
+    """Rewrite `<version>` in config.xml (CDATA or plain). Returns True if changed."""
+    content = xml_path.read_text(encoding="utf-8")
+    new_content, count = XML_CDATA_VERSION_RE.subn(
+        lambda m: m.group(1) + new_version + m.group(3), content, count=1
+    )
+    if count == 0:
+        new_content, count = XML_PLAIN_VERSION_RE.subn(
+            lambda m: m.group(1) + new_version + m.group(3), content, count=1
+        )
+    if count:
+        xml_path.write_text(new_content, encoding="utf-8")
+    return count > 0
+
+
+def write_module_version(module_dir: Path, new_version: str) -> list[Path]:
+    """Write new_version into scmorderuntil.php and config.xml. Returns updated files."""
+    updated: list[Path] = []
+    php_path = module_dir / "scmorderuntil.php"
+    if php_path.exists() and set_version_in_php(php_path, new_version):
+        updated.append(php_path)
+    xml_path = module_dir / "config.xml"
+    if xml_path.exists() and set_version_in_xml(xml_path, new_version):
+        updated.append(xml_path)
+    return updated
 
 
 def main(argv: list[str]) -> int:
-    latest_tag = argv[0] if argv else os.environ.get("LATEST_TAG")
+    write = "--write" in argv
     root_dir = Path(__file__).resolve().parent.parent
-    base_version = get_base_version(root_dir)
 
-    next_tag = calculate_next_tag(latest_tag, base_version)
-    print(f"Calculated next tag: {next_tag}")
+    base_version = get_base_version(root_dir)
+    bumped = bump_patch(parse_version(base_version))
+    new_version = format_version(bumped, prefix="")  # e.g. "1.3.1"
+    tag_name = "v" + new_version
+
+    print(f"Module version (source of truth): {base_version}")
+    print(f"Next version: {new_version} (tag {tag_name})")
+
+    if write:
+        updated = write_module_version(root_dir, new_version)
+        for path in updated:
+            print(f"  updated {path.relative_to(root_dir)} -> {new_version}")
+        if not updated:
+            print("  WARNING: no version strings were updated", file=sys.stderr)
+            return 1
 
     github_output = os.environ.get("GITHUB_OUTPUT")
     if github_output:
         with open(github_output, "a", encoding="utf-8") as f:
-            f.write(f"tag_name={next_tag}\n")
-            f.write(f"version={next_tag.lstrip('v')}\n")
+            f.write(f"tag_name={tag_name}\n")
+            f.write(f"version={new_version}\n")
+            f.write(f"previous_version={base_version}\n")
 
     return 0
 

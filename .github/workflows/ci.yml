@@ -64,7 +64,7 @@ jobs:
         run: pytest -q
 
   tag-and-release:
-    name: Tag Release & Publish Module Zip
+    name: Bump module version, tag & publish zip
     needs: [php, js, python-tests]
     if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
     runs-on: ubuntu-latest
@@ -77,20 +77,38 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Calculate next version tag (patch increment)
+      # Source of truth = the module's own declared version ($this->version in
+      # scmorderuntil.php). Read it, bump the patch, and write it back into the
+      # module (scmorderuntil.php + config.xml). No git-tag guessing.
+      - name: Bump module version
         id: version
-        run: |
-          git fetch --tags --force || true
-          LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
-          python scripts/bump_version.py "$LATEST_TAG"
+        run: python scripts/bump_version.py --write
 
-      - name: Create and push Git tag
+      - name: Guard against an existing tag
+        run: |
+          TAG="${{ steps.version.outputs.tag_name }}"
+          if git rev-parse -q --verify "refs/tags/$TAG" >/dev/null; then
+            echo "::error::Tag $TAG already exists. Bump \$this->version in scmorderuntil.php to release a new version."
+            exit 1
+          fi
+
+      - name: Commit the version bump
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          TAG_NAME="${{ steps.version.outputs.tag_name }}"
-          git tag "$TAG_NAME"
-          git push origin "$TAG_NAME"
+          git add scmorderuntil.php config.xml
+          if git diff --cached --quiet; then
+            echo "No version change to commit."
+          else
+            git commit -m "chore(release): bump module to ${{ steps.version.outputs.version }} [skip ci]"
+            git push origin "HEAD:${{ github.ref_name }}"
+          fi
+
+      - name: Create and push Git tag
+        run: |
+          TAG="${{ steps.version.outputs.tag_name }}"
+          git tag -a "$TAG" -m "PrestaShop module $TAG"
+          git push origin "$TAG"
 
       - name: Package module into scmorderuntil.zip
         run: |

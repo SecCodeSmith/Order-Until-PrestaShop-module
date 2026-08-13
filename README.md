@@ -120,10 +120,27 @@ scmorderuntil/
 ├─ controllers/front/ajax.php            same-origin proxy (server call mode only)
 ├─ views/templates/hook/countdown.tpl    placeholder markup (no server-side API call)
 ├─ views/js/countdown.js                 client-side fetch + text builder + live countdown
-├─ views/css/countdown.css               green box + countdown pill (light/dark)
+├─ views/css/countdown.css               British Racing Green box + countdown pill (light/dark)
+├─ upgrade/upgrade-1.3.0.php              hook migration for already-installed shops
 ├─ translations/pl.php                    Polish translations of the widget phrases
 └─ index.php (+ per-folder stubs)
 ```
+
+## Releasing
+
+The **module's own version is the single source of truth** — `$this->version` in
+`scmorderuntil.php` (mirrored in `config.xml`). On every push to `main`/`master`, CI
+(`.github/workflows/ci.yml`, job `tag-and-release`):
+
+1. Reads that version and bumps the **patch** (`scripts/bump_version.py --write`), writing
+   the new value back into `scmorderuntil.php` + `config.xml`.
+2. Commits the bump back to the branch (`[skip ci]`, so it does not loop) and creates the
+   matching `vX.Y.Z` git tag.
+3. Packages `scmorderuntil.zip` and publishes a GitHub Release with it attached.
+
+So `1.3.0` in the module ships as **`v1.3.1`**. To cut a **minor/major** release, edit
+`$this->version` in `scmorderuntil.php` (e.g. to `1.4.0`) and push — the next run releases
+`v1.4.1`. A collision guard fails the job if the computed tag already exists.
 
 ## Notes
 
