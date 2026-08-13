@@ -30,6 +30,12 @@ class Scmorderuntil extends Module implements WidgetInterface
 {
     const PREFIX = 'SCMOU_';
 
+    /** Default GitHub repo (owner/name) the self-updater pulls releases from. */
+    const GH_DEFAULT_REPO = 'SecCodeSmith/Order-Until-PrestaShop-module';
+
+    /** Release asset the updater downloads (built by the module's CI). */
+    const GH_ASSET = 'scmorderuntil.zip';
+
     /** Guard so displayProductPriceBlock renders only once per page. */
     protected static $priceBlockRendered = false;
 
@@ -83,7 +89,7 @@ class Scmorderuntil extends Module implements WidgetInterface
             'API_URL', 'API_KEY', 'CALL_MODE', 'PLACEMENT', 'CUTOFF',
             'DELIVERY_OFFSET', 'LOCALE', 'TPL_OPEN', 'TPL_CLOSED', 'TPL_SUB',
             'LABEL_COUNTDOWN', 'FOOTNOTE', 'CACHE_TTL', 'TIMEOUT', 'SHOW_PRODUCT',
-            'SHOW_CART', 'SHOW_SUB', 'REFRESH',
+            'SHOW_CART', 'SHOW_SUB', 'REFRESH', 'UPDATE_REPO', 'UPDATE_TOKEN',
         ];
     }
 
@@ -122,6 +128,8 @@ class Scmorderuntil extends Module implements WidgetInterface
             'SHOW_CART' => 1,
             'SHOW_SUB' => 1,              // second line (ship/delivery detail)
             'REFRESH' => 1,
+            'UPDATE_REPO' => self::GH_DEFAULT_REPO,
+            'UPDATE_TOKEN' => '',
         ];
         foreach ($defaults as $k => $v) {
             Configuration::updateValue(self::PREFIX . $k, $v);
@@ -451,6 +459,249 @@ class Scmorderuntil extends Module implements WidgetInterface
     }
 
     // --------------------------------------------------------------------- //
+    // Self-update from the GitHub release package
+    // --------------------------------------------------------------------- //
+    /** Configured "owner/repo" the updater reads releases from. */
+    private function updateRepo()
+    {
+        $repo = trim((string) $this->conf('UPDATE_REPO', self::GH_DEFAULT_REPO));
+        return $repo !== '' ? $repo : self::GH_DEFAULT_REPO;
+    }
+
+    /**
+     * Fetch the latest published release for the module repo.
+     * Returns ['tag','version','zip','html','notes'] or null on failure.
+     */
+    public function fetchLatestRelease()
+    {
+        $url = 'https://api.github.com/repos/' . $this->updateRepo() . '/releases/latest';
+        $raw = $this->ghGet($url);
+        if ($raw === null) {
+            return null;
+        }
+        $data = json_decode($raw, true);
+        return is_array($data) ? $this->parseRelease($data) : null;
+    }
+
+    /** Turn a GitHub release JSON payload into our compact release array (or null). */
+    private function parseRelease(array $data)
+    {
+        if (empty($data['tag_name'])) {
+            return null;
+        }
+        $zip = '';
+        if (!empty($data['assets']) && is_array($data['assets'])) {
+            foreach ($data['assets'] as $asset) {
+                if (isset($asset['name'], $asset['browser_download_url'])
+                    && $asset['name'] === self::GH_ASSET) {
+                    $zip = (string) $asset['browser_download_url'];
+                    break;
+                }
+            }
+        }
+        return [
+            'tag' => (string) $data['tag_name'],
+            'version' => ltrim((string) $data['tag_name'], 'vV'),
+            'zip' => $zip,
+            'html' => isset($data['html_url']) ? (string) $data['html_url'] : '',
+            'notes' => isset($data['body']) ? (string) $data['body'] : '',
+        ];
+    }
+
+    /** GET a GitHub URL with the required User-Agent (+ optional token), following redirects. */
+    private function ghGet($url, $binary = false)
+    {
+        $headers = [
+            'User-Agent: scmorderuntil-updater',
+            'Accept: ' . ($binary ? 'application/octet-stream' : 'application/vnd.github+json'),
+        ];
+        $token = trim((string) $this->conf('UPDATE_TOKEN', ''));
+        if ($token !== '') {
+            $headers[] = 'Authorization: Bearer ' . $token;
+        }
+
+        if (function_exists('curl_init')) {
+            $ch = curl_init($url);
+            curl_setopt_array($ch, [
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_FOLLOWLOCATION => true,
+                CURLOPT_MAXREDIRS => 5,
+                CURLOPT_CONNECTTIMEOUT => 10,
+                CURLOPT_TIMEOUT => $binary ? 90 : 15,
+                CURLOPT_SSL_VERIFYPEER => true,
+                CURLOPT_HTTPHEADER => $headers,
+            ]);
+            $body = curl_exec($ch);
+            $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            curl_close($ch);
+            return ($body !== false && $code >= 200 && $code < 300) ? $body : null;
+        }
+
+        $ctx = stream_context_create([
+            'http' => [
+                'method' => 'GET',
+                'timeout' => $binary ? 90 : 15,
+                'follow_location' => 1,
+                'header' => implode("\r\n", $headers) . "\r\n",
+            ],
+            'ssl' => ['verify_peer' => true, 'verify_peer_name' => true],
+        ]);
+        $body = @file_get_contents($url, false, $ctx);
+        return $body === false ? null : $body;
+    }
+
+    /** Only trust asset URLs on github.com under the configured repo's release path. */
+    private function isTrustedAssetUrl($url)
+    {
+        $host = parse_url($url, PHP_URL_HOST);
+        $path = (string) parse_url($url, PHP_URL_PATH);
+        $prefix = '/' . $this->updateRepo() . '/releases/download/';
+        return $host === 'github.com' && strpos($path, $prefix) === 0;
+    }
+
+    /**
+     * Download the latest release zip and extract it over modules/scmorderuntil/.
+     * PrestaShop runs the actual DB upgrade on the following page load (the caller
+     * redirects). Returns ['ok'=>bool,'message'=>string,'version'=>string].
+     */
+    public function performSelfUpdate()
+    {
+        $release = $this->fetchLatestRelease();
+        if ($release === null) {
+            return ['ok' => false, 'message' => $this->l('Could not reach GitHub to fetch the latest release.')];
+        }
+        if (version_compare($release['version'], $this->version, '<=')) {
+            return ['ok' => false, 'message' => $this->l('You are already running the latest version.')];
+        }
+        if ($release['zip'] === '' || !$this->isTrustedAssetUrl($release['zip'])) {
+            return ['ok' => false, 'message' => $this->l('No trusted update package (scmorderuntil.zip) on the release.')];
+        }
+
+        $binary = $this->ghGet($release['zip'], true);
+        if ($binary === null || Tools::strlen($binary) < 100) {
+            return ['ok' => false, 'message' => $this->l('Failed to download the update package.')];
+        }
+
+        $tmpZip = _PS_CACHE_DIR_ . 'scmorderuntil_update_' . time() . '.zip';
+        if (@file_put_contents($tmpZip, $binary) === false) {
+            return ['ok' => false, 'message' => $this->l('Could not write the update package to disk.')];
+        }
+
+        $result = $this->extractUpdateZip($tmpZip);
+        @unlink($tmpZip);
+        if ($result !== true) {
+            return ['ok' => false, 'message' => $result];
+        }
+
+        $this->cleanCaches();
+        return [
+            'ok' => true,
+            'version' => $release['version'],
+            'message' => sprintf($this->l('Updated to %s.'), $release['version']),
+        ];
+    }
+
+    /**
+     * Validate then extract the update zip over the modules directory. Every entry
+     * must live under scmorderuntil/ with no path traversal, and the module main
+     * file must be present. Returns true on success or an error string.
+     */
+    private function extractUpdateZip($tmpZip)
+    {
+        if (!class_exists('ZipArchive')) {
+            return $this->l('ZipArchive (PHP zip extension) is not available on this server.');
+        }
+        $za = new ZipArchive();
+        if ($za->open($tmpZip) !== true) {
+            return $this->l('The downloaded package is not a valid zip file.');
+        }
+        $hasMain = false;
+        for ($i = 0; $i < $za->numFiles; $i++) {
+            $name = $za->getNameIndex($i);
+            if ($name === false) {
+                continue;
+            }
+            if (strpos($name, 'scmorderuntil/') !== 0 || strpos($name, '..') !== false) {
+                $za->close();
+                return $this->l('The package contains unexpected paths and was rejected.');
+            }
+            if ($name === 'scmorderuntil/scmorderuntil.php') {
+                $hasMain = true;
+            }
+        }
+        if (!$hasMain) {
+            $za->close();
+            return $this->l('The package does not look like the scmorderuntil module.');
+        }
+        $ok = $za->extractTo(_PS_MODULE_DIR_);
+        $za->close();
+        if (!$ok) {
+            return $this->l('Extraction failed — check write permissions on the modules/ directory.');
+        }
+        return true;
+    }
+
+    /** Best-effort cache clear so PrestaShop reloads the replaced files. */
+    private function cleanCaches()
+    {
+        if (method_exists('Tools', 'clearAllCache')) {
+            try {
+                Tools::clearAllCache();
+            } catch (Exception $e) {
+                // noop — cache clearing is best-effort.
+            }
+        }
+        foreach ((array) glob(_PS_CACHE_DIR_ . 'scmorderuntil_*.json') as $f) {
+            @unlink($f);
+        }
+    }
+
+    /** The "Module updates" panel shown above the settings form. */
+    private function renderUpdatePanel($latest)
+    {
+        $action = AdminController::$currentIndex . '&configure=' . $this->name
+            . '&token=' . Tools::getAdminTokenLite('AdminModules');
+        $esc = function ($s) {
+            return htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8');
+        };
+
+        $html = '<div class="panel">'
+            . '<div class="panel-heading"><i class="icon-cloud-download"></i> '
+            . $this->l('Module updates') . '</div>'
+            . '<form method="post" action="' . $esc($action) . '">'
+            . '<p>' . sprintf($this->l('Installed version: %s'), '<strong>' . $esc($this->version) . '</strong>')
+            . '</p>'
+            . '<p class="help-block">'
+            . sprintf($this->l('Updates are pulled from %s.'), '<code>' . $esc($this->updateRepo()) . '</code>')
+            . '</p>';
+
+        if (is_array($latest)) {
+            if (version_compare($latest['version'], $this->version, '>')) {
+                $html .= '<div class="alert alert-info">'
+                    . sprintf($this->l('A new version is available: %s.'), '<strong>' . $esc($latest['tag']) . '</strong>');
+                if ($latest['html'] !== '') {
+                    $html .= ' <a href="' . $esc($latest['html']) . '" target="_blank" rel="noopener noreferrer">'
+                        . $this->l('Release notes') . '</a>';
+                }
+                $html .= '</div>'
+                    . '<button type="submit" name="submitScmouUpdate" class="btn btn-primary">'
+                    . '<i class="icon-download"></i> '
+                    . sprintf($this->l('Download & install %s'), $esc($latest['tag']))
+                    . '</button> ';
+            } else {
+                $html .= '<div class="alert alert-success">'
+                    . $this->l('You are running the latest version.') . '</div>';
+            }
+        }
+
+        $html .= '<button type="submit" name="submitScmouCheck" class="btn btn-default">'
+            . '<i class="icon-refresh"></i> ' . $this->l('Check for updates') . '</button>'
+            . '</form></div>';
+
+        return $html;
+    }
+
+    // --------------------------------------------------------------------- //
     // Back-office configuration
     // --------------------------------------------------------------------- //
     public function getContent()
@@ -460,7 +711,39 @@ class Scmorderuntil extends Module implements WidgetInterface
             $this->postProcessConfig();
             $output .= $this->displayConfirmation($this->l('Settings updated.'));
         }
-        return $output . $this->renderConfigForm();
+
+        // Self-update from the GitHub release package.
+        $latest = null;
+        if (Tools::isSubmit('submitScmouCheck')) {
+            $latest = $this->fetchLatestRelease();
+            if ($latest === null) {
+                $output .= $this->displayError(
+                    $this->l('Could not reach GitHub to check for updates.')
+                );
+            }
+        }
+        if (Tools::isSubmit('submitScmouUpdate')) {
+            $res = $this->performSelfUpdate();
+            if (!empty($res['ok'])) {
+                // Files are replaced; reload so PrestaShop runs the upgrade
+                // scripts and picks up the new class/templates.
+                Tools::redirectAdmin(
+                    AdminController::$currentIndex . '&configure=' . $this->name
+                    . '&token=' . Tools::getAdminTokenLite('AdminModules')
+                    . '&scmou_updated=' . urlencode($res['version'])
+                );
+            }
+            $output .= $this->displayError($res['message']);
+        }
+        $justUpdated = Tools::getValue('scmou_updated');
+        if ($justUpdated !== false && $justUpdated !== '') {
+            $output .= $this->displayConfirmation(sprintf(
+                $this->l('Module updated to %s.'),
+                htmlspecialchars((string) $justUpdated, ENT_QUOTES, 'UTF-8')
+            ));
+        }
+
+        return $output . $this->renderUpdatePanel($latest) . $this->renderConfigForm();
     }
 
     private function postProcessConfig()
@@ -470,7 +753,7 @@ class Scmorderuntil extends Module implements WidgetInterface
             'PLACEMENT' => 'string', 'CUTOFF' => 'string', 'DELIVERY_OFFSET' => 'int',
             'LOCALE' => 'string', 'CACHE_TTL' => 'int', 'TIMEOUT' => 'int',
             'SHOW_PRODUCT' => 'bool', 'SHOW_CART' => 'bool', 'SHOW_SUB' => 'bool',
-            'REFRESH' => 'bool',
+            'REFRESH' => 'bool', 'UPDATE_REPO' => 'string', 'UPDATE_TOKEN' => 'string',
         ];
         foreach ($types as $key => $type) {
             $raw = Tools::getValue(self::PREFIX . $key);
@@ -620,6 +903,16 @@ class Scmorderuntil extends Module implements WidgetInterface
                         $this->l('Auto-refresh at zero'), 'REFRESH',
                         $this->l('Refetch when the countdown reaches zero so it rolls to the next window.')
                     ),
+                    [
+                        'type' => 'text', 'label' => $this->l('Update source (GitHub owner/repo)'),
+                        'name' => self::PREFIX . 'UPDATE_REPO',
+                        'desc' => $this->l('Repository the "Check for updates" button reads releases from.'),
+                    ],
+                    [
+                        'type' => 'text', 'label' => $this->l('GitHub token (optional)'),
+                        'name' => self::PREFIX . 'UPDATE_TOKEN',
+                        'desc' => $this->l('Only for a private repo or to avoid GitHub API rate limits.'),
+                    ],
                 ],
                 'submit' => ['title' => $this->l('Save'), 'name' => 'submitScmou'],
             ],

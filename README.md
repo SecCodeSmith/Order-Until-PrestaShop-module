@@ -56,6 +56,8 @@ Browser (countdown.js) ── GET {API}/api/v1/delivery/estimate ──► FastA
 | Show on product / cart | `SCMOU_SHOW_PRODUCT` / `SCMOU_SHOW_CART` | on | |
 | Show second line | `SCMOU_SHOW_SUB` | on | the ship/delivery detail line under the main text |
 | Auto-refresh at zero | `SCMOU_REFRESH` | on | refetch when the timer reaches zero |
+| Update source | `SCMOU_UPDATE_REPO` | `SecCodeSmith/Order-Until-PrestaShop-module` | GitHub `owner/repo` the self-updater reads releases from |
+| Update token | `SCMOU_UPDATE_TOKEN` | — | optional GitHub token (private repo / rate limits) |
 
 ### Text templates
 
@@ -119,6 +121,23 @@ Example — same product, two languages:
 British Racing Green (`#004225`) box by default. Override `views/css/countdown.css` or target: `.scmou-box`
 (`.scmou-open` / `.scmou-closed`), `.scmou-check`, `.scmou-text`, `.scmou-badge`
 (the countdown pill). Dark-mode aware.
+
+## Updating from GitHub
+
+The module can update itself from its GitHub releases — no manual re-upload:
+
+1. **Modules → SCM Order Until → Configure → "Module updates"**.
+2. Click **Check for updates**. It queries the latest release of
+   `SecCodeSmith/Order-Until-PrestaShop-module` (configurable via `SCMOU_UPDATE_REPO`).
+3. If a newer version exists, click **Download & install** — the module downloads the
+   release's `scmorderuntil.zip`, verifies it, extracts it over `modules/scmorderuntil/`,
+   and reloads so PrestaShop runs the upgrade scripts. The DB upgrade finishes on that reload.
+
+Safeguards: the asset URL must be on `github.com` under the configured repo's
+`releases/download/` path; the zip must contain `scmorderuntil/scmorderuntil.php` and no
+entry may escape the `scmorderuntil/` folder (Zip-Slip guard). Set `SCMOU_UPDATE_TOKEN` for a
+private repo or to avoid GitHub's unauthenticated API rate limit. Requires PHP's `zip`
+extension and write access to `modules/`.
 
 ## Files
 

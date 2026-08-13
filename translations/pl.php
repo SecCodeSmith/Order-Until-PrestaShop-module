@@ -32,3 +32,17 @@ $_MODULE[$m . md5('Order by {cutoff}, ships {shipwhen}, delivered {when}')]
 $_MODULE[$m . md5('SCM Order Until — Delivery Countdown')]
     = 'SCM Order Until — Odliczanie do wysyłki';
 $_MODULE[$m . md5('Fast dispatch')] = 'Szybka wysyłka';
+
+// Self-update panel (Back Office).
+$_MODULE[$m . md5('Module updates')] = 'Aktualizacje modułu';
+$_MODULE[$m . md5('Installed version: %s')] = 'Zainstalowana wersja: %s';
+$_MODULE[$m . md5('Updates are pulled from %s.')] = 'Aktualizacje pobierane są z %s.';
+$_MODULE[$m . md5('A new version is available: %s.')] = 'Dostępna jest nowa wersja: %s.';
+$_MODULE[$m . md5('Release notes')] = 'Informacje o wydaniu';
+$_MODULE[$m . md5('Download & install %s')] = 'Pobierz i zainstaluj %s';
+$_MODULE[$m . md5('You are running the latest version.')] = 'Masz najnowszą wersję.';
+$_MODULE[$m . md5('Check for updates')] = 'Sprawdź aktualizacje';
+$_MODULE[$m . md5('Module updated to %s.')] = 'Zaktualizowano moduł do %s.';
+$_MODULE[$m . md5('You are already running the latest version.')] = 'Masz już najnowszą wersję.';
+$_MODULE[$m . md5('Could not reach GitHub to check for updates.')]
+    = 'Nie udało się połączyć z GitHub, aby sprawdzić aktualizacje.';
