@@ -89,7 +89,8 @@ class Scmorderuntil extends Module implements WidgetInterface
             'API_URL', 'API_KEY', 'CALL_MODE', 'PLACEMENT', 'CUTOFF',
             'DELIVERY_OFFSET', 'LOCALE', 'TPL_OPEN', 'TPL_CLOSED',
             'LABEL_COUNTDOWN', 'FOOTNOTE', 'CACHE_TTL', 'TIMEOUT', 'SHOW_PRODUCT',
-            'SHOW_CART', 'REFRESH', 'UPDATE_REPO', 'UPDATE_TOKEN',
+            'SHOW_CART', 'SHOW_ONLY_AVAILABLE', 'REFRESH', 'UPDATE_REPO',
+            'UPDATE_TOKEN',
             // Legacy (removed second-line feature): listed only so uninstall
             // purges any values left in the DB by older module versions.
             'TPL_SUB', 'SHOW_SUB',
@@ -129,6 +130,7 @@ class Scmorderuntil extends Module implements WidgetInterface
             'TIMEOUT' => 3,               // server mode only
             'SHOW_PRODUCT' => 1,
             'SHOW_CART' => 1,
+            'SHOW_ONLY_AVAILABLE' => 1, // hide the box on out-of-stock products
             'REFRESH' => 1,
             'UPDATE_REPO' => self::GH_DEFAULT_REPO,
             'UPDATE_TOKEN' => '',
@@ -198,6 +200,9 @@ class Scmorderuntil extends Module implements WidgetInterface
         if (!$this->conf('SHOW_PRODUCT', 1) || self::$priceBlockRendered) {
             return '';
         }
+        if ($this->conf('SHOW_ONLY_AVAILABLE', 1) && !$this->isProductAvailable($params)) {
+            return '';
+        }
         self::$priceBlockRendered = true;
         return $this->renderCountdown('product');
     }
@@ -212,6 +217,9 @@ class Scmorderuntil extends Module implements WidgetInterface
             return '';
         }
         if (!$this->conf('SHOW_PRODUCT', 1)) {
+            return '';
+        }
+        if ($this->conf('SHOW_ONLY_AVAILABLE', 1) && !$this->isProductAvailable($params)) {
             return '';
         }
         return $this->renderCountdown('product');
@@ -251,6 +259,59 @@ class Scmorderuntil extends Module implements WidgetInterface
         return $controller !== null
             && isset($controller->php_self)
             && $controller->php_self === 'cart';
+    }
+
+    /**
+     * Whether the current product can actually be ordered right now, so the
+     * "order until" promise is truthful. A product counts as available when it is
+     * active, marked available_for_order, and either has stock or explicitly
+     * allows backorders when out of stock. Combinations are respected via the
+     * selected id_product_attribute. On the product page the id is always
+     * resolvable; if we somehow cannot tell, we err on the side of showing the box
+     * rather than hiding a valid product.
+     */
+    private function isProductAvailable($params)
+    {
+        $idProduct = 0;
+        $idAttr = 0;
+
+        $p = isset($params['product']) ? $params['product'] : null;
+        if (is_object($p) && $p instanceof Product) {
+            $idProduct = (int) $p->id;
+        } elseif (is_array($p) || $p instanceof ArrayAccess) {
+            if (isset($p['id_product'])) {
+                $idProduct = (int) $p['id_product'];
+            } elseif (isset($p['id'])) {
+                $idProduct = (int) $p['id'];
+            }
+            if (isset($p['id_product_attribute'])) {
+                $idAttr = (int) $p['id_product_attribute'];
+            }
+        }
+        if ($idProduct <= 0) {
+            $idProduct = (int) Tools::getValue('id_product');
+        }
+        if ($idAttr <= 0) {
+            $idAttr = (int) Tools::getValue('id_product_attribute');
+        }
+        if ($idProduct <= 0) {
+            return true; // cannot determine — do not hide a valid product
+        }
+
+        $product = new Product($idProduct, false, (int) $this->context->language->id);
+        if (!Validate::isLoadedObject($product)) {
+            return true;
+        }
+        if (!$product->active || !$product->available_for_order) {
+            return false;
+        }
+
+        $qty = StockAvailable::getQuantityAvailableByProduct($idProduct, $idAttr);
+        if ($qty > 0) {
+            return true;
+        }
+        // Out of stock: available only if backorders are allowed for this product.
+        return (bool) Product::isAvailableWhenOutOfStock((int) $product->out_of_stock);
     }
 
     // --------------------------------------------------------------------- //
@@ -360,7 +421,7 @@ class Scmorderuntil extends Module implements WidgetInterface
             // Fallback sentence templates when the per-language TPL_* fields are
             // empty. Also translatable, so they follow the page language.
             'defaultOpen' => $this->l('Available, order by {cutoff}, delivery {when}*'),
-            'defaultClosed' => $this->l('Available, order before {shipwhen} {cutoff}*'),
+            'defaultClosed' => $this->l('Available, order by {shipwhen} {cutoff}, delivery {when}*'),
         ];
     }
 
@@ -751,6 +812,7 @@ class Scmorderuntil extends Module implements WidgetInterface
             'PLACEMENT' => 'string', 'CUTOFF' => 'string', 'DELIVERY_OFFSET' => 'int',
             'LOCALE' => 'string', 'CACHE_TTL' => 'int', 'TIMEOUT' => 'int',
             'SHOW_PRODUCT' => 'bool', 'SHOW_CART' => 'bool',
+            'SHOW_ONLY_AVAILABLE' => 'bool',
             'REFRESH' => 'bool', 'UPDATE_REPO' => 'string', 'UPDATE_TOKEN' => 'string',
         ];
         foreach ($types as $key => $type) {
@@ -880,6 +942,10 @@ class Scmorderuntil extends Module implements WidgetInterface
                     ],
                     $onoff($this->l('Show on product page'), 'SHOW_PRODUCT'),
                     $onoff($this->l('Show on cart page'), 'SHOW_CART'),
+                    $onoff(
+                        $this->l('Only on available products'), 'SHOW_ONLY_AVAILABLE',
+                        $this->l('Hide the box on out-of-stock products (unless backorders are allowed), so the delivery promise is only shown when the product can actually be ordered.')
+                    ),
                     $onoff(
                         $this->l('Auto-refresh at zero'), 'REFRESH',
                         $this->l('Refetch when the countdown reaches zero so it rolls to the next window.')

@@ -29,7 +29,7 @@
     weekdays: ['on Sunday', 'on Monday', 'on Tuesday', 'on Wednesday',
       'on Thursday', 'on Friday', 'on Saturday'],
     defaultOpen: 'Available, order by {cutoff}, delivery {when}*',
-    defaultClosed: 'Available, order before {shipwhen} {cutoff}*'
+    defaultClosed: 'Available, order by {shipwhen} {cutoff}, delivery {when}*'
   }, CFG.labels || {});
 
   function merge(base, over) {
@@ -84,8 +84,9 @@
   }
 
   function ddmm(s) {
+    if (!s) { return ''; }
     var p = String(s).split('-');
-    return p[2] + '.' + p[1];
+    return (p[2] || '') + '.' + (p[1] || '');
   }
 
   function buildText(est) {
@@ -98,7 +99,14 @@
       .replace(/\{cutoff\}/g, est.cutoff_time || '')
       .replace(/\{shipwhen\}/g, shipWhenPhrase(est))
       .replace(/\{when\}/g, whenPhrase(est))
-      .replace(/\{delivery\}/g, ddmm(est.delivery_date));
+      .replace(/\{delivery\}/g, ddmm(est.delivery_date))
+      // Never show a raw {placeholder} to the customer: drop any left over
+      // (e.g. an unknown token, or one a stale cached script can't fill) and
+      // tidy the whitespace/punctuation it leaves behind.
+      .replace(/\{[a-zA-Z_]+\}/g, '')
+      .replace(/\s{2,}/g, ' ')
+      .replace(/\s+([,.*])/g, '$1')
+      .trim();
   }
 
   function localeOf(el) {

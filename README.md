@@ -2,7 +2,9 @@
 
 Shows a green **"Available, order by HH:MM, delivery {tomorrow / weekday}"** box with a
 live **countdown**, in the **product summary header** (next to the price) and on the cart.
-Once the cutoff passes it flips to **"Available, order before {tomorrow / weekday} HH:MM"**.
+Once the cutoff passes it flips to **"Available, order by {tomorrow / weekday} HH:MM, delivery {day}"**.
+By default the box only appears on products that can actually be ordered (in stock, or
+backorder-enabled).
 
 To keep load **off** the PrestaShop server, the delivery estimate is fetched **client-side**:
 the visitor's browser calls the companion **FastAPI service** directly
@@ -54,6 +56,7 @@ Browser (countdown.js) ── GET {API}/api/v1/delivery/estimate ──► FastA
 | Cache TTL (server mode) | `SCMOU_CACHE_TTL` | `120` | seconds; `0` disables |
 | API timeout (server mode) | `SCMOU_TIMEOUT` | `3` | seconds |
 | Show on product / cart | `SCMOU_SHOW_PRODUCT` / `SCMOU_SHOW_CART` | on | |
+| Only on available products | `SCMOU_SHOW_ONLY_AVAILABLE` | on | Product page: hide the box on out-of-stock products (unless backorders are allowed) |
 | Auto-refresh at zero | `SCMOU_REFRESH` | on | refetch when the timer reaches zero |
 | Update source | `SCMOU_UPDATE_REPO` | `SecCodeSmith/Order-Until-PrestaShop-module` | GitHub `owner/repo` the self-updater reads releases from |
 | Update token | `SCMOU_UPDATE_TOKEN` | — | optional GitHub token (private repo / rate limits) |
@@ -73,8 +76,14 @@ Built-in defaults:
 
 - **Open** (before today's cutoff): EN `Available, order by {cutoff}, delivery {when}*` ·
   PL `Dostępny, zamów do {cutoff}, dostawa {when}*` → e.g. *"Available, order by 15:00, delivery tomorrow*"*.
-- **Closed** (after the cutoff — ships the next working day): EN `Available, order before {shipwhen} {cutoff}*` ·
-  PL `Dostępny, zamów {shipwhen} do {cutoff}*` → e.g. *"Available, order before tomorrow 15:00*"*.
+- **Closed** (after the cutoff — ships the next working day): EN `Available, order by {shipwhen} {cutoff}, delivery {when}*` ·
+  PL `Dostępny, zamów {shipwhen} do {cutoff}, dostawa {when}*` → e.g. *"Available, order by tomorrow 15:00, delivery on Wednesday*"*.
+
+Any placeholder the running script cannot fill is stripped rather than shown raw, so the
+customer never sees a literal `{token}` — but if you edited a template or upgraded the module
+and still see raw `{shipwhen}`/`{when}`, an **old `countdown.js` is cached**: clear the
+PrestaShop cache and, under *Advanced Parameters → Performance*, the "Combine, Compress and
+Cache (CCC)" JS cache (a version bump also busts the browser cache).
 
 The widget shows a **single line** only. (A second detail line existed in earlier
 versions but was removed — all wording now lives in the first line.)

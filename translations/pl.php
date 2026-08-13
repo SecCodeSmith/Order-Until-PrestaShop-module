@@ -26,13 +26,16 @@ $_MODULE[$m . md5('on Saturday')] = 'w sobotę';
 // Open = before today's cutoff; closed = after it (ships the next working day).
 $_MODULE[$m . md5('Available, order by {cutoff}, delivery {when}*')]
     = 'Dostępny, zamów do {cutoff}, dostawa {when}*';
-$_MODULE[$m . md5('Available, order before {shipwhen} {cutoff}*')]
-    = 'Dostępny, zamów {shipwhen} do {cutoff}*';
+$_MODULE[$m . md5('Available, order by {shipwhen} {cutoff}, delivery {when}*')]
+    = 'Dostępny, zamów {shipwhen} do {cutoff}, dostawa {when}*';
 
 // A few back-office / display strings.
 $_MODULE[$m . md5('SCM Order Until — Delivery Countdown')]
     = 'SCM Order Until — Odliczanie do wysyłki';
 $_MODULE[$m . md5('Fast dispatch')] = 'Szybka wysyłka';
+$_MODULE[$m . md5('Only on available products')] = 'Tylko dla dostępnych produktów';
+$_MODULE[$m . md5('Hide the box on out-of-stock products (unless backorders are allowed), so the delivery promise is only shown when the product can actually be ordered.')]
+    = 'Ukryj ramkę dla produktów niedostępnych (chyba że dozwolone są zamówienia oczekujące), aby obietnica dostawy pojawiała się tylko wtedy, gdy produkt można faktycznie zamówić.';
 
 // Self-update panel (Back Office).
 $_MODULE[$m . md5('Module updates')] = 'Aktualizacje modułu';
