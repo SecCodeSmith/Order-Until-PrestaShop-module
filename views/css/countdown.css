@@ -14,7 +14,7 @@
   border: 1px solid #a9c9b6;
   border-radius: 10px;
   background: #e7f1ea;
-  color: #004225;
+  color: #188251;
   font-size: 15px;
   line-height: 1.35;
   font-weight: 500;
@@ -79,7 +79,8 @@
   .scmou-box {
     background: rgba(0, 66, 37, 0.16);
     border-color: rgba(0, 66, 37, 0.45);
-    color: #7fc79e;
+    color: #188251
+;
   }
   .scmou-check { color: #7fc79e; }
   .scmou-badge { background: #0a5c34; }
