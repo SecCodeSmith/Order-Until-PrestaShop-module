@@ -1,0 +1,18 @@
+# Node / front-end tooling
+node_modules/
+package-lock.json
+npm-debug.log*
+
+# PHP tooling
+/vendor/
+.phpcs.cache
+.php-cs-fixer.cache
+
+# PrestaShop generated cache manifests (keep the module's own config.xml)
+config_*.xml
+
+# OS / editor cruft
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

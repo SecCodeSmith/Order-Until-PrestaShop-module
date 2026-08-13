@@ -1,0 +1,27 @@
+<?xml version="1.0"?>
+<ruleset name="scmorderuntil">
+    <description>PSR-12 based coding standard for the SCM Order Until PrestaShop module.</description>
+
+    <file>.</file>
+    <arg name="extensions" value="php"/>
+    <arg name="colors"/>
+    <arg value="np"/>
+
+    <exclude-pattern>*/vendor/*</exclude-pattern>
+    <exclude-pattern>*/node_modules/*</exclude-pattern>
+
+    <rule ref="PSR12">
+        <!-- PrestaShop entry stubs guard with `if (!defined('_PS_VERSION_')) exit;`
+             and emit no-cache headers at file scope. That is deliberate side-effect
+             code with no declarations, so PSR1.Files.SideEffects does not apply. -->
+        <exclude name="PSR1.Files.SideEffects"/>
+    </rule>
+
+    <!-- Long PrestaShop hook names, config keys and translation strings need room. -->
+    <rule ref="Generic.Files.LineLength">
+        <properties>
+            <property name="lineLimit" value="120"/>
+            <property name="absoluteLineLimit" value="160"/>
+        </properties>
+    </rule>
+</ruleset>

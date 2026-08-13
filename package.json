@@ -1,0 +1,12 @@
+{
+  "name": "scmorderuntil",
+  "version": "1.2.0",
+  "private": true,
+  "description": "Lint tooling for the SCM Order Until PrestaShop module front-end assets.",
+  "scripts": {
+    "lint:js": "eslint \"views/js/*.js\""
+  },
+  "devDependencies": {
+    "eslint": "^8.57.1"
+  }
+}

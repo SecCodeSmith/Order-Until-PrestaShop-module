@@ -1,0 +1,20 @@
+{
+  "root": true,
+  "env": {
+    "browser": true,
+    "es5": true
+  },
+  "parserOptions": {
+    "ecmaVersion": 5,
+    "sourceType": "script"
+  },
+  "extends": "eslint:recommended",
+  "globals": {
+    "prestashop": "readonly"
+  },
+  "rules": {
+    "no-unused-vars": ["warn", { "args": "none", "caughtErrors": "none" }],
+    "no-empty": ["error", { "allowEmptyCatch": true }],
+    "eqeqeq": ["warn", "smart"]
+  }
+}

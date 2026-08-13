@@ -1,0 +1,51 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  php:
+    name: php -l · phpcs
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.2"
+          tools: phpcs
+          coverage: none
+
+      - name: PHP syntax lint
+        run: find . -name '*.php' -not -path './vendor/*' -print0 | xargs -0 -n1 -P4 php -l
+
+      - name: PHP CodeSniffer (PSR-12 — advisory)
+        run: phpcs --standard=phpcs.xml.dist
+        continue-on-error: true
+
+  js:
+    name: eslint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install ESLint
+        run: npm install --no-audit --no-fund
+
+      - name: ESLint (advisory)
+        run: npm run lint:js
+        continue-on-error: true
