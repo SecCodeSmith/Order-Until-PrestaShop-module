@@ -46,7 +46,7 @@ class Scmorderuntil extends Module implements WidgetInterface
     {
         $this->name = 'scmorderuntil';
         $this->tab = 'front_office_features';
-        $this->version = '1.3.5';
+        $this->version = '1.3.6';
         $this->author = 'SCM Order Until';
         $this->need_instance = 0;
         $this->ps_versions_compliancy = ['min' => '1.7.0.0', 'max' => _PS_VERSION_];
@@ -71,6 +71,7 @@ class Scmorderuntil extends Module implements WidgetInterface
             && $this->registerHook('displayHeader')
             && $this->registerHook('displayProductPriceBlock')
             && $this->registerHook('displayProductAdditionalInfo')
+            && $this->registerHook('displayExpressCheckout')
             && $this->registerHook('displayReassurance')
             && $this->installDefaults();
     }
@@ -200,6 +201,16 @@ class Scmorderuntil extends Module implements WidgetInterface
         if (!$this->conf('SHOW_PRODUCT', 1) || self::$priceBlockRendered) {
             return '';
         }
+        // displayProductPriceBlock fires several times across product-prices.tpl
+        // (before_price, unit_price, weight, after_price, ...). Rendering on the
+        // FIRST fire drops the box in ahead of the price — and in themes whose
+        // price row is a flex/inline container that collapses the price element
+        // out of view. Skip the before_price position so the box always renders
+        // AFTER the price markup and can never displace it.
+        $type = isset($params['type']) ? (string) $params['type'] : '';
+        if ($type === 'before_price') {
+            return '';
+        }
         if ($this->conf('SHOW_ONLY_AVAILABLE', 1) && !$this->isProductAvailable($params)) {
             return '';
         }
@@ -226,12 +237,34 @@ class Scmorderuntil extends Module implements WidgetInterface
     }
 
     /**
-     * Renders inside the cart's order-summary column — the reassurance block,
-     * right by the "Proceed to checkout" button. Gated to the cart controller so
-     * it does not follow the reassurance hook onto product pages, and guarded so
-     * it shows only once even if the theme emits the hook more than once.
+     * Preferred cart placement: inside the order-summary card, right by the
+     * "Proceed to checkout" button (this is where express-checkout buttons like
+     * PayPal render). Falls back to hookDisplayReassurance on themes that do not
+     * emit displayExpressCheckout.
+     */
+    public function hookDisplayExpressCheckout($params)
+    {
+        return $this->renderCartSummaryBox();
+    }
+
+    /**
+     * Fallback cart placement: the reassurance block, below the order-summary
+     * card. Only reached on themes whose cart template has no displayExpress-
+     * Checkout hook, because the shared render-once guard is claimed by
+     * displayExpressCheckout first (it sits higher in the cart template).
      */
     public function hookDisplayReassurance($params)
+    {
+        return $this->renderCartSummaryBox();
+    }
+
+    /**
+     * Renders the cart order-summary countdown exactly once per page. Gated to
+     * the cart controller so it does not follow these shared hooks onto product
+     * or checkout pages, and guarded by a static flag so only the first-firing
+     * hook (displayExpressCheckout, inside the card) renders it.
+     */
+    private function renderCartSummaryBox()
     {
         if (!$this->conf('SHOW_CART', 1) || self::$cartSummaryRendered) {
             return '';
