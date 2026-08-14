@@ -201,14 +201,17 @@ class Scmorderuntil extends Module implements WidgetInterface
         if (!$this->conf('SHOW_PRODUCT', 1) || self::$priceBlockRendered) {
             return '';
         }
-        // displayProductPriceBlock fires several times across product-prices.tpl
-        // (before_price, unit_price, weight, after_price, ...). Rendering on the
-        // FIRST fire drops the box in ahead of the price — and in themes whose
-        // price row is a flex/inline container that collapses the price element
-        // out of view. Skip the before_price position so the box always renders
-        // AFTER the price markup and can never displace it.
+        // displayProductPriceBlock fires at several positions in product-prices.tpl,
+        // each tagged with $params['type']. Two positions are traps: 'custom_price'
+        // is CAPTURED and REPLACES the displayed price when a module returns content
+        // (so rendering the box there makes the price vanish — this is the classic
+        // "price disappears" bug on non-discounted products, where custom_price is
+        // the first fire), and 'old_price' sits inside the discount block ahead of
+        // the price. Render only at a safe slot that follows the price value —
+        // 'weight' (its own block right under the price) is preferred, with
+        // 'after_price'/'price' as fallbacks — so the box can never displace it.
         $type = isset($params['type']) ? (string) $params['type'] : '';
-        if ($type === 'before_price') {
+        if (!in_array($type, ['weight', 'after_price', 'price'], true)) {
             return '';
         }
         if ($this->conf('SHOW_ONLY_AVAILABLE', 1) && !$this->isProductAvailable($params)) {
