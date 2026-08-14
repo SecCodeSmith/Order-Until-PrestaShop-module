@@ -16,7 +16,7 @@
  *
  * Compatible with PrestaShop 1.7.x and 8.x.
  *
- * @author  SCM Order Until
+ * @author  SCM Jakub Berechowski
  * @license MIT
  */
 
@@ -47,7 +47,7 @@ class Scmorderuntil extends Module implements WidgetInterface
         $this->name = 'scmorderuntil';
         $this->tab = 'front_office_features';
         $this->version = '1.3.6';
-        $this->author = 'SCM Order Until';
+        $this->author = 'SCM Jakub Berechowski';
         $this->need_instance = 0;
         $this->ps_versions_compliancy = ['min' => '1.7.0.0', 'max' => _PS_VERSION_];
         $this->bootstrap = true;
